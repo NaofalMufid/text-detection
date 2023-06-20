@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { AnalyzeDocumentCommand, Textract, TextractClient } = require('@aws-sdk/client-textract');
+const { AnalyzeDocumentCommand, Textract } = require('@aws-sdk/client-textract');
 const fs = require('fs');
 const _ = require('lodash')
 
@@ -31,9 +31,10 @@ const getText = (result, blocksMap) => {
             }
         });
     }
-
+    // fs.writeFileSync('getText.json', JSON.stringify(text.trim()));
     return text.trim();
 };
+
 const findValueBlock = (keyBlock, valueMap) => {
     let valueBlock;
     keyBlock.Relationships.forEach(relationship => {
@@ -47,7 +48,7 @@ const findValueBlock = (keyBlock, valueMap) => {
             });
         }
     });
-
+    // fs.writeFileSync('findValueBlock.json', JSON.stringify(valueBlock));
     return valueBlock;
 };
 
@@ -55,14 +56,14 @@ const getKeyValueRelationship = (keyMap, valueMap, blockMap) => {
     const keyValues = {};
 
     const keyMapValues = _.values(keyMap);
-
+    // fs.writeFileSync('keyMapValues.json', JSON.stringify(keyMapValues))
     keyMapValues.forEach(keyMapValue => {
         const valueBlock = findValueBlock(keyMapValue, valueMap);
         const key = getText(keyMapValue, blockMap);
         const value = getText(valueBlock, blockMap);
         keyValues[key] = value;
     });
-
+    // fs.writeFileSync('keyValueRelationship.json', JSON.stringify(keyValues));
     return keyValues;
 };
 
@@ -84,12 +85,12 @@ const getKeyValueMap = blocks => {
             }
         }
     });
-
+    // fs.writeFileSync('valueMap.json', JSON.stringify({ keyMap, valueMap, blockMap }))
     return { keyMap, valueMap, blockMap };
 };
 
-async function textDetect() {
-    const docLocal = Buffer.from(fs.readFileSync('./ktp-miring.jpg'));
+async function textDetect(buffFile, filename) {
+    const docLocal = Buffer.from(buffFile, 'binary');
     let detectParam = {
         Document: {
             Bytes: docLocal
@@ -99,13 +100,17 @@ async function textDetect() {
     const command = new AnalyzeDocumentCommand(detectParam);
     try {
         const data = await client.send(command);
-        fs.writeFileSync('datatext.json', JSON.stringify(data.Blocks));
+        // fs.writeFileSync('datatextktpmiring.json', JSON.stringify(data.Blocks));
         const { keyMap, valueMap, blockMap } = getKeyValueMap(data.Blocks);
         const keyValues = getKeyValueRelationship(keyMap, valueMap, blockMap);
-        fs.writeFileSync('newextract.json', JSON.stringify(keyValues));
+        fs.writeFileSync(`./hasil/${filename}.json`, JSON.stringify(keyValues));
+        return true;
     } catch (err) {
         console.log(err);
+        return false;
     }
 }
 
-textDetect();
+module.exports = {
+    textDetect,
+};
